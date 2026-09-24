@@ -1,0 +1,19 @@
+# Training, evaluation and inference.
+-r ../ingest/requirements.txt
+
+scikit-learn>=1.5,<2.0
+xgboost>=2.1,<4.0
+lightgbm>=4.5,<5.0
+
+# The temporal hazard model. CPU wheels are sufficient for the NER grid.
+torch>=2.5,<3.0
+
+# Per-prediction explanation. Mandatory, not optional: see docs/MODEL_CARD.md.
+shap>=0.46,<0.50
+
+# Terrain derivatives.
+richdem>=0.3.4,<0.4
+whitebox>=2.3,<3.0
+
+# Experiment tracking and the model registry.
+mlflow>=2.18,<4.0

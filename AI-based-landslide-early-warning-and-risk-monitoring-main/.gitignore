@@ -1,0 +1,59 @@
+# --- Secrets ---------------------------------------------------------------
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+!.env.example
+
+# --- Python ----------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+dist/
+build/
+
+# --- Node / Next -----------------------------------------------------------
+node_modules/
+.next/
+out/
+.turbo/
+*.tsbuildinfo
+next-env.d.ts
+.vercel
+
+# --- Data and model artefacts ----------------------------------------------
+# Rasters, tiles and trained models are large and reproducible. They belong in
+# MinIO and MLflow, not in git.
+data/
+*.tif
+*.tiff
+*.pmtiles
+*.mbtiles
+*.geojson.gz
+mlruns/
+mlartifacts/
+models/*.pt
+models/*.onnx
+models/*.joblib
+!ml/notebooks/**/*.ipynb
+
+# --- Local infrastructure state --------------------------------------------
+infra/postgres/data/
+infra/minio/data/
+infra/mosquitto/data/
+
+# --- Editors and OS --------------------------------------------------------
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.swp

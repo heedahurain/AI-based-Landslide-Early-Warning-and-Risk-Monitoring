@@ -1,0 +1,23 @@
+# Data providers, Celery tasks and the synthetic generator.
+-r ../api/requirements.txt
+
+# Array and geospatial stack.
+numpy>=2.1,<3.0
+pandas>=2.2,<3.0
+scipy>=1.14,<2.0
+xarray>=2024.10
+rioxarray>=0.17,<0.21
+rasterio>=1.4,<2.0
+geopandas>=1.0,<2.0
+pyproj>=3.7,<4.0
+
+# STAC access for Planetary Computer collections.
+pystac-client>=0.8,<0.10
+planetary-computer>=1.0,<2.0
+
+# Columnar interchange between the pipeline and the API loader.
+pyarrow>=18.0,<23.0
+
+# Road network extraction.
+osmnx>=2.0,<3.0
+networkx>=3.4,<4.0

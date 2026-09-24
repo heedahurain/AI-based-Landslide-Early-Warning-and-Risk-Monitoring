@@ -1,0 +1,547 @@
+@import "tailwindcss";
+
+/* ============================================================================
+   ShailSuraksha design tokens
+   ----------------------------------------------------------------------------
+   Positioning: "ISRO mission control meets Linear." Dark, dense, precise, calm.
+
+   Token rules that must not be broken:
+   1. The COMPLETE palette is defined on bare :root (the light theme).
+      No colour may have its only definition inside a media query.
+   2. Dark values are redefined twice: once under prefers-color-scheme guarded
+      as :root:not([data-theme="light"]) so an explicit light choice wins, and
+      once under :root[data-theme="dark"] so the toggle wins in both directions.
+   3. Severity colours are locked product-wide and never re-mixed per component.
+      --sev-*-mark is the fill/marker colour, --sev-*-text is the contrast-safe
+      variant for text on the current surface. Never use -mark for body text.
+   ========================================================================= */
+
+:root {
+  /* --- Severity, locked. Source of truth for the whole product. --------- */
+  --sev-green: #22c55e;
+  --sev-amber: #f59e0b;
+  --sev-orange: #f97316;
+  --sev-red: #ef4444;
+  --sev-cyan: #38bdf8; /* interactive / selected, not a severity level */
+
+  /* Marker variants are used for fills, prisms, dots and map polygons. */
+  --sev-green-mark: var(--sev-green);
+  --sev-amber-mark: var(--sev-amber);
+  --sev-orange-mark: var(--sev-orange);
+  --sev-red-mark: var(--sev-red);
+  --sev-cyan-mark: var(--sev-cyan);
+
+  /* Text variants are darkened for the light surface so they pass WCAG AA.
+     Phase 5 measures and publishes every ratio in docs/DESIGN.md. */
+  --sev-green-text: #15803d;
+  --sev-amber-text: #854d0e;
+  --sev-orange-text: #c2410c;
+  --sev-red-text: #b91c1c;
+  --sev-cyan-text: #0369a1;
+
+  /* Outline variants. The -mark hexes are locked by the spec and are too light
+     to meet the 3:1 non-text requirement on a white surface (measured: green
+     2.28, amber 2.15, orange 2.80, cyan 2.14). Marks therefore always ship
+     with this outline in light theme, which preserves the locked palette and
+     still gives every marker a discernible boundary. */
+  --sev-green-outline: #15803d;
+  --sev-amber-outline: #854d0e;
+  --sev-orange-outline: #c2410c;
+  --sev-red-outline: #b91c1c;
+  --sev-cyan-outline: #0369a1;
+
+  /* Tint backgrounds for chips and banners. */
+  --sev-green-tint: #dcfce7;
+  --sev-amber-tint: #fef3c7;
+  --sev-orange-tint: #ffedd5;
+  --sev-red-tint: #fee2e2;
+  --sev-cyan-tint: #e0f2fe;
+
+  /* --- Data provenance, used by the status chips. ----------------------- */
+  --status-live: var(--sev-green-text);
+  --status-cached: var(--sev-amber-text);
+  --status-simulated: var(--sev-cyan-text);
+
+  /* --- Surfaces (light theme) ------------------------------------------ */
+  --bg-base: #f5f7fa;
+  --bg-surface: #ffffff;
+  --bg-elevated: #ffffff;
+  --bg-sunken: #eaeef4;
+  --bg-overlay: rgb(15 23 42 / 0.45);
+
+  /* --- Foreground ------------------------------------------------------- */
+  --fg-primary: #0b1220;
+  --fg-secondary: #46536b;
+  --fg-muted: #6b7891;
+  --fg-inverted: #ffffff;
+
+  /* --- Lines ------------------------------------------------------------ */
+  --border-subtle: #e2e8f0;
+  --border-default: #cbd5e1;
+  --border-strong: #94a3b8;
+  --border-focus: #0369a1;
+
+  /* --- Accent ----------------------------------------------------------- */
+  --accent: #0369a1;
+  --accent-hover: #075985;
+  --accent-fg: #ffffff;
+  --accent-tint: var(--sev-cyan-tint);
+
+  /* --- Spacing, a strict 4 px grid ------------------------------------- */
+  --space-0: 0;
+  --space-1: 0.25rem; /* 4  */
+  --space-2: 0.5rem; /* 8  */
+  --space-3: 0.75rem; /* 12 */
+  --space-4: 1rem; /* 16 */
+  --space-5: 1.25rem; /* 20 */
+  --space-6: 1.5rem; /* 24 */
+  --space-8: 2rem; /* 32 */
+  --space-10: 2.5rem; /* 40 */
+  --space-12: 3rem; /* 48 */
+  --space-16: 4rem; /* 64 */
+  --space-20: 5rem; /* 80 */
+
+  /* --- Radius ----------------------------------------------------------- */
+  --radius-sm: 6px;
+  --radius-md: 9px;
+  --radius-lg: 12px; /* the product default */
+  --radius-xl: 16px;
+  --radius-full: 9999px;
+
+  /* --- Elevation, exactly one shadow token per level -------------------- */
+  --shadow-1: 0 1px 2px 0 rgb(15 23 42 / 0.06);
+  --shadow-2: 0 2px 8px -2px rgb(15 23 42 / 0.1);
+  --shadow-3: 0 8px 24px -6px rgb(15 23 42 / 0.14);
+  --shadow-4: 0 20px 48px -12px rgb(15 23 42 / 0.2);
+
+  /* --- Type scale ------------------------------------------------------- */
+  --text-2xs: 0.6875rem; /* 11 */
+  --text-xs: 0.75rem; /* 12 */
+  --text-sm: 0.8125rem; /* 13 */
+  --text-base: 0.875rem; /* 14, the dense default for an operations console */
+  --text-md: 1rem; /* 16 */
+  --text-lg: 1.125rem; /* 18 */
+  --text-xl: 1.375rem; /* 22 */
+  --text-2xl: 1.75rem; /* 28 */
+  --text-3xl: 2.25rem; /* 36 */
+  --text-4xl: 3rem; /* 48 */
+
+  --leading-tight: 1.2;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.7;
+
+  --tracking-tight: -0.01em;
+  --tracking-wide: 0.02em;
+  --tracking-caps: 0.06em;
+
+  /* --- Motion, 150-250 ms, transform and opacity only ------------------- */
+  --duration-instant: 80ms;
+  --duration-fast: 150ms;
+  --duration-normal: 200ms;
+  --duration-slow: 250ms;
+  --duration-deliberate: 400ms;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --stagger-step: 30ms;
+
+  /* --- Layout ----------------------------------------------------------- */
+  --topbar-h: 3.5rem;
+  --sidebar-w: 15rem;
+  --sidebar-w-collapsed: 3.5rem;
+  --z-map: 0;
+  --z-panel: 10;
+  --z-topbar: 20;
+  --z-drawer: 30;
+  --z-dialog: 40;
+  --z-toast: 50;
+
+  color-scheme: light;
+}
+
+/* --- Dark theme, applied when the system prefers dark and the user has not
+       explicitly chosen light. --------------------------------------------- */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --sev-green-text: #4ade80;
+    --sev-amber-text: #fbbf24;
+    --sev-orange-text: #fb923c;
+    --sev-red-text: #f87171;
+    --sev-cyan-text: #7dd3fc;
+
+    --sev-green-outline: #4ade80;
+    --sev-amber-outline: #fbbf24;
+    --sev-orange-outline: #fb923c;
+    --sev-red-outline: #f87171;
+    --sev-cyan-outline: #7dd3fc;
+
+    --sev-green-tint: #072a16;
+    --sev-amber-tint: #2e1e04;
+    --sev-orange-tint: #2f1607;
+    --sev-red-tint: #350f0f;
+    --sev-cyan-tint: #07253a;
+
+    --bg-base: #070b14;
+    --bg-surface: #0d1424;
+    --bg-elevated: #16203a;
+    --bg-sunken: #050810;
+    --bg-overlay: rgb(2 6 14 / 0.66);
+
+    --fg-primary: #e8eefc;
+    --fg-secondary: #9fb0cc;
+    --fg-muted: #6b7d9c;
+    --fg-inverted: #070b14;
+
+    --border-subtle: #1b2540;
+    --border-default: #263250;
+    --border-strong: #3a4867;
+    --border-focus: #38bdf8;
+
+    --accent: #38bdf8;
+    --accent-hover: #7dd3fc;
+    --accent-fg: #04121e;
+    --accent-tint: var(--sev-cyan-tint);
+
+    --shadow-1: 0 1px 2px 0 rgb(0 0 0 / 0.4);
+    --shadow-2: 0 2px 8px -2px rgb(0 0 0 / 0.5);
+    --shadow-3: 0 8px 24px -6px rgb(0 0 0 / 0.6);
+    --shadow-4: 0 20px 48px -12px rgb(0 0 0 / 0.7);
+
+    color-scheme: dark;
+  }
+}
+
+/* --- Dark theme, chosen explicitly. Must repeat the same values so the
+       toggle wins regardless of the system setting. ------------------------ */
+:root[data-theme="dark"] {
+  --sev-green-text: #4ade80;
+  --sev-amber-text: #fbbf24;
+  --sev-orange-text: #fb923c;
+  --sev-red-text: #f87171;
+  --sev-cyan-text: #7dd3fc;
+
+  --sev-green-outline: #4ade80;
+  --sev-amber-outline: #fbbf24;
+  --sev-orange-outline: #fb923c;
+  --sev-red-outline: #f87171;
+  --sev-cyan-outline: #7dd3fc;
+
+  --sev-green-tint: #072a16;
+  --sev-amber-tint: #2e1e04;
+  --sev-orange-tint: #2f1607;
+  --sev-red-tint: #350f0f;
+  --sev-cyan-tint: #07253a;
+
+  --bg-base: #070b14;
+  --bg-surface: #0d1424;
+  --bg-elevated: #16203a;
+  --bg-sunken: #050810;
+  --bg-overlay: rgb(2 6 14 / 0.66);
+
+  --fg-primary: #e8eefc;
+  --fg-secondary: #9fb0cc;
+  --fg-muted: #6b7d9c;
+  --fg-inverted: #070b14;
+
+  --border-subtle: #1b2540;
+  --border-default: #263250;
+  --border-strong: #3a4867;
+  --border-focus: #38bdf8;
+
+  --accent: #38bdf8;
+  --accent-hover: #7dd3fc;
+  --accent-fg: #04121e;
+  --accent-tint: var(--sev-cyan-tint);
+
+  --shadow-1: 0 1px 2px 0 rgb(0 0 0 / 0.4);
+  --shadow-2: 0 2px 8px -2px rgb(0 0 0 / 0.5);
+  --shadow-3: 0 8px 24px -6px rgb(0 0 0 / 0.6);
+  --shadow-4: 0 20px 48px -12px rgb(0 0 0 / 0.7);
+
+  color-scheme: dark;
+}
+
+/* --- High contrast, an accessibility requirement for a government product. */
+:root[data-contrast="high"] {
+  --fg-secondary: var(--fg-primary);
+  --fg-muted: var(--fg-primary);
+  --border-subtle: var(--border-strong);
+  --border-default: var(--border-strong);
+}
+
+/* ============================================================================
+   Tailwind v4 theme mapping. Utilities read these, components read the raw
+   custom properties. Both resolve to the same token.
+   ========================================================================= */
+@theme inline {
+  --color-base: var(--bg-base);
+  --color-surface: var(--bg-surface);
+  --color-elevated: var(--bg-elevated);
+  --color-sunken: var(--bg-sunken);
+
+  --color-fg: var(--fg-primary);
+  --color-fg-secondary: var(--fg-secondary);
+  --color-fg-muted: var(--fg-muted);
+  --color-fg-inverted: var(--fg-inverted);
+
+  --color-border-subtle: var(--border-subtle);
+  --color-border-default: var(--border-default);
+  --color-border-strong: var(--border-strong);
+
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-fg: var(--accent-fg);
+
+  --color-sev-green: var(--sev-green-mark);
+  --color-sev-amber: var(--sev-amber-mark);
+  --color-sev-orange: var(--sev-orange-mark);
+  --color-sev-red: var(--sev-red-mark);
+  --color-sev-cyan: var(--sev-cyan-mark);
+
+  --color-sev-green-text: var(--sev-green-text);
+  --color-sev-amber-text: var(--sev-amber-text);
+  --color-sev-orange-text: var(--sev-orange-text);
+  --color-sev-red-text: var(--sev-red-text);
+  --color-sev-cyan-text: var(--sev-cyan-text);
+
+  --color-sev-green-outline: var(--sev-green-outline);
+  --color-sev-amber-outline: var(--sev-amber-outline);
+  --color-sev-orange-outline: var(--sev-orange-outline);
+  --color-sev-red-outline: var(--sev-red-outline);
+  --color-sev-cyan-outline: var(--sev-cyan-outline);
+
+  --color-sev-green-tint: var(--sev-green-tint);
+  --color-sev-amber-tint: var(--sev-amber-tint);
+  --color-sev-orange-tint: var(--sev-orange-tint);
+  --color-sev-red-tint: var(--sev-red-tint);
+  --color-sev-cyan-tint: var(--sev-cyan-tint);
+
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+  --radius-xl: var(--radius-xl);
+
+  --shadow-e1: var(--shadow-1);
+  --shadow-e2: var(--shadow-2);
+  --shadow-e3: var(--shadow-3);
+  --shadow-e4: var(--shadow-4);
+
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-fraunces), ui-serif, Georgia, serif;
+  --font-mono: var(--font-jetbrains-mono), ui-monospace, "SFMono-Regular", monospace;
+
+  --ease-out: var(--ease-out);
+}
+
+/* ============================================================================
+   Base layer
+   ========================================================================= */
+* {
+  border-color: var(--border-subtle);
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  /* The host paints its own ground behind the page, so this is explicit. */
+  background-color: var(--bg-base);
+  color: var(--fg-primary);
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  line-height: var(--leading-normal);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Numerals must never jitter as live values update. */
+.tabular,
+[data-numeric],
+time,
+code,
+kbd,
+samp {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+/* A visible focus ring is not optional in a government product. */
+:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+::selection {
+  background: var(--accent);
+  color: var(--accent-fg);
+}
+
+/* Scrollbars that match the console, without hiding the affordance. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--border-default);
+  border-radius: var(--radius-full);
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--border-strong);
+  background-clip: content-box;
+}
+
+/* Skip link for keyboard users. */
+.skip-link {
+  position: absolute;
+  left: var(--space-4);
+  top: calc(var(--space-4) * -8);
+  z-index: var(--z-toast);
+  padding: var(--space-2) var(--space-4);
+  background: var(--bg-elevated);
+  color: var(--fg-primary);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  transition: top var(--duration-fast) var(--ease-out);
+}
+.skip-link:focus {
+  top: var(--space-4);
+}
+
+/* ============================================================================
+   Motion. Respect the user's stated preference completely, not partially.
+   ========================================================================= */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* The RED risk pulse: a slow emissive breath, never a blink.
+   The map uses a GLSL equivalent; this is the DOM counterpart. */
+@keyframes risk-breathe {
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.06);
+  }
+}
+
+.risk-pulse {
+  animation: risk-breathe 2.5s var(--ease-in-out) infinite;
+  will-change: transform, opacity;
+}
+
+/* Staggered list entrance, 30 ms per row. */
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.rise-in {
+  animation: rise-in var(--duration-normal) var(--ease-out) both;
+}
+
+/* ============================================================================
+   Colour-blind-safe mode. Severity must never be carried by hue alone, so this
+   mode adds a pattern fill behind the colour. Icons are added per component.
+   ========================================================================= */
+:root[data-cvd="on"] [data-severity="yellow"] {
+  background-image: repeating-linear-gradient(45deg, transparent 0 3px, rgb(0 0 0 / 0.22) 3px 6px);
+}
+:root[data-cvd="on"] [data-severity="orange"] {
+  background-image: repeating-linear-gradient(-45deg, transparent 0 3px, rgb(0 0 0 / 0.24) 3px 6px);
+}
+:root[data-cvd="on"] [data-severity="red"] {
+  background-image: repeating-linear-gradient(90deg, transparent 0 2px, rgb(0 0 0 / 0.3) 2px 5px);
+}
+
+/* ============================================================================
+   Editorial surfaces, for the public-facing pages only.
+   ----------------------------------------------------------------------------
+   The console stays flat on purpose: a dense grid of live figures reads best
+   on an even ground. The landing page and the portal have to persuade, and a
+   single flat near-black there looks like an unfinished admin panel rather
+   than a product. These utilities add depth without touching any token the
+   console depends on.
+   ========================================================================= */
+
+/* Warm ink, layered rather than flat. Three very low-opacity washes at
+   different angles give the background somewhere to fall away to. */
+.editorial-ground {
+  background-color: var(--bg-base);
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgb(56 189 248 / 0.1), transparent 60%),
+    radial-gradient(ellipse 60% 50% at 10% 20%, rgb(120 90 60 / 0.08), transparent 55%),
+    radial-gradient(ellipse 70% 60% at 95% 80%, rgb(30 60 100 / 0.14), transparent 60%);
+}
+
+:root[data-theme="light"] .editorial-ground,
+.editorial-ground:where(:root:not([data-theme="dark"]) *) {
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgb(56 189 248 / 0.1), transparent 60%),
+    radial-gradient(ellipse 60% 50% at 10% 20%, rgb(180 150 110 / 0.14), transparent 55%),
+    radial-gradient(ellipse 70% 60% at 95% 80%, rgb(120 160 200 / 0.12), transparent 60%);
+}
+
+/* Film grain. An inline SVG turbulence, so it costs no request and no image
+   asset. Very low opacity: it should be felt, not seen. */
+.grain::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 240 240' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* Display type. Optical sizing does the work at large sizes, so the tracking
+   correction is small. */
+.display {
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: -0.015em;
+  font-optical-sizing: auto;
+}
+
+/* A hairline that fades out, used to separate editorial sections without the
+   hard box-edge look of a full-width border. */
+.rule-fade {
+  height: 1px;
+  background: linear-gradient(
+    to right,
+    transparent,
+    var(--border-default) 15%,
+    var(--border-default) 85%,
+    transparent
+  );
+}
+
+/* Large numerals in the editorial sections read better with a little air. */
+.figure-lg {
+  font-family: var(--font-display);
+  font-variant-numeric: lining-nums tabular-nums;
+  letter-spacing: -0.02em;
+}

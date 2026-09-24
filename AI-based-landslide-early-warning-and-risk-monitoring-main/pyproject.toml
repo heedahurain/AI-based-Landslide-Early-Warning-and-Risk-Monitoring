@@ -1,0 +1,108 @@
+[project]
+name = "shailsuraksha"
+version = "0.0.0"
+description = "AI-based landslide early warning and risk monitoring for the eight North Eastern states of India"
+requires-python = ">=3.12"
+
+# This root file carries shared tooling configuration only. Runtime
+# dependencies live with the service that needs them:
+#   api/requirements.txt      FastAPI service
+#   ingest/requirements.txt   providers, Celery tasks, synthetic engine
+#   ml/requirements.txt       training and inference
+# The container is the source of truth for the Python version (3.12). Local
+# interpreters may be newer; several geo and ML wheels lag a release.
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["api", "ingest", "ml"]
+exclude = [".venv", "venv", "__pycache__", "api/alembic/versions"]
+
+[tool.ruff.lint]
+select = [
+  "E",   # pycodestyle
+  "W",   # pycodestyle warnings
+  "F",   # pyflakes
+  "I",   # isort
+  "B",   # bugbear
+  "BLE", # blind except: broad handlers must be justified
+  "C4",  # comprehensions
+  "UP",  # pyupgrade
+  "N",   # pep8-naming
+  "SIM", # simplify
+  "TID", # tidy imports
+  "RUF",
+]
+ignore = [
+  "E501", # line length is handled by the formatter
+  "B008", # FastAPI dependency injection relies on calls in argument defaults
+]
+
+[tool.ruff.lint.per-file-ignores]
+"**/tests/**" = ["N802"]
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.mypy]
+python_version = "3.12"
+# The packages import across directories at runtime: ingest reads app.core.config
+# for settings, and the api serves the physics layer from ml. The type checker
+# needs the same search path the container sets in PYTHONPATH.
+mypy_path = "api:ml:ingest"
+strict = true
+warn_unused_ignores = true
+warn_return_any = true
+disallow_untyped_defs = true
+plugins = ["pydantic.mypy"]
+exclude = ["api/alembic/versions/", "ml/notebooks/"]
+
+# Scientific and geospatial libraries ship incomplete or absent stubs. Ignoring
+# their missing types is deliberate; our own code stays strictly typed.
+[[tool.mypy.overrides]]
+module = [
+  "scipy.*",
+  "planetary_computer.*",
+  "pystac_client.*",
+  "rasterio.*",
+  "rioxarray.*",
+  "xarray.*",
+  "geopandas.*",
+  "pandas.*",
+  "shapely.*",
+  "pyproj.*",
+  "richdem.*",
+  "whitebox.*",
+  "osmnx.*",
+  "networkx.*",
+  "sklearn.*",
+  "xgboost.*",
+  "lightgbm.*",
+  "shap.*",
+  "mlflow.*",
+  "celery.*",
+  "paho.*",
+  "minio.*",
+]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["api/tests", "ingest/tests", "ml/tests"]
+pythonpath = ["api", "ingest", "ml"]
+python_files = ["test_*.py"]
+# Default (prepend) import mode with no __init__.py in the test directories,
+# so each test file is imported as a top-level module named after its file.
+# Two other arrangements were tried and both break on this layout:
+#   - __init__.py in each test directory makes api/tests and ingest/tests both
+#     the package "tests", and the second to load raises ModuleNotFoundError.
+#   - --import-mode=importlib derives the module name from the path relative to
+#     the repository root, so ingest/tests/x.py is imported as
+#     "ingest.tests.x". That forces "ingest" to resolve to the outer folder,
+#     which is a namespace package with no terrain submodule.
+# Test file names must therefore stay unique across all three suites.
+addopts = "-q --strict-markers"
+markers = [
+  "network: requires outbound network access, skipped by default in CI",
+  "slow: long-running, excluded from the fast feedback loop",
+]
+filterwarnings = ["error::DeprecationWarning:shailsuraksha.*"]

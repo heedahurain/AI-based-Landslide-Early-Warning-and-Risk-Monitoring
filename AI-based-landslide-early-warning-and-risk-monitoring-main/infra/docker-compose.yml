@@ -1,0 +1,198 @@
+name: shailsuraksha
+
+# The full local stack. `make up` from the repository root brings this online.
+#
+# Service startup is ordered by health check rather than by `depends_on` alone,
+# because PostGIS and TimescaleDB extension creation takes a few seconds and an
+# API that starts first will otherwise fail its first migration.
+
+services:
+  postgres:
+    # timescaledb-ha bundles TimescaleDB and PostGIS on PostgreSQL 16, which is
+    # exactly the pairing the domain model needs: hypertables for the sensor and
+    # rainfall series, PostGIS geometry for slope units and admin boundaries.
+    image: timescale/timescaledb-ha:pg16
+    container_name: shail-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-shail}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-shail}
+      POSTGRES_DB: ${POSTGRES_DB:-shailsuraksha}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/home/postgres/pgdata/data
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-shail} -d ${POSTGRES_DB:-shailsuraksha}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: shail-redis
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: shail-mosquitto
+    ports:
+      - "${MQTT_PORT:-1883}:1883"
+      - "${MQTT_WS_PORT:-9001}:9001"
+    volumes:
+      - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - mosquitto-data:/mosquitto/data
+    healthcheck:
+      # mosquitto_sub with -E exits as soon as the subscription is established,
+      # which is a genuine broker check rather than a port probe.
+      test: ["CMD-SHELL", "mosquitto_sub -h localhost -t healthcheck -E -W 3 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  minio:
+    image: minio/minio:latest
+    container_name: shail-minio
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-minioadmin}
+    ports:
+      - "${MINIO_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9002}:9001"
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  api:
+    build:
+      context: ..
+      dockerfile: infra/docker/api.Dockerfile
+    container_name: shail-api
+    environment:
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+      DEBUG: ${DEBUG:-true}
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-shail}:${POSTGRES_PASSWORD:-shail}@postgres:5432/${POSTGRES_DB:-shailsuraksha}
+      REDIS_URL: redis://redis:6379/0
+      MQTT_HOST: mosquitto
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-dev-only-not-a-secret}
+    ports:
+      - "${API_PORT:-8000}:8000"
+    volumes:
+      - ../api:/app/api
+      - ../ingest:/app/ingest
+      - ../ml:/app/ml
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      minio: { condition: service_started }
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request;urllib.request.urlopen('http://localhost:8000/api/v1/health')\""]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    command:
+      ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: ..
+      dockerfile: infra/docker/api.Dockerfile
+    container_name: shail-worker
+    environment:
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-shail}:${POSTGRES_PASSWORD:-shail}@postgres:5432/${POSTGRES_DB:-shailsuraksha}
+      REDIS_URL: redis://redis:6379/0
+      MQTT_HOST: mosquitto
+      MINIO_ENDPOINT: minio:9000
+    volumes:
+      - ../api:/app/api
+      - ../ingest:/app/ingest
+      - ../ml:/app/ml
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    # The ingestion and inference tasks land in Phase 2. Until then the worker
+    # starts, connects to the broker and idles, which is what makes `make up`
+    # verifiable end to end today.
+    command: ["celery", "-A", "ingest.tasks.app", "worker", "--loglevel=info"]
+    profiles: ["workers"]
+    restart: unless-stopped
+
+  beat:
+    build:
+      context: ..
+      dockerfile: infra/docker/api.Dockerfile
+    container_name: shail-beat
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-shail}:${POSTGRES_PASSWORD:-shail}@postgres:5432/${POSTGRES_DB:-shailsuraksha}
+    volumes:
+      - ../ingest:/app/ingest
+    depends_on:
+      redis: { condition: service_healthy }
+    command: ["celery", "-A", "ingest.tasks.app", "beat", "--loglevel=info"]
+    profiles: ["workers"]
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ..
+      dockerfile: infra/docker/web.Dockerfile
+    container_name: shail-web
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:${API_PORT:-8000}
+      NODE_ENV: production
+    ports:
+      - "${WEB_PORT:-3000}:3000"
+    depends_on:
+      api: { condition: service_started }
+    restart: unless-stopped
+
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:latest
+    container_name: shail-mlflow
+    command: >
+      mlflow server --host 0.0.0.0 --port 5000
+      --backend-store-uri postgresql://${POSTGRES_USER:-shail}:${POSTGRES_PASSWORD:-shail}@postgres:5432/${POSTGRES_DB:-shailsuraksha}
+      --default-artifact-root s3://${MINIO_BUCKET:-shailsuraksha}/mlflow
+    environment:
+      MLFLOW_S3_ENDPOINT_URL: http://minio:9000
+      AWS_ACCESS_KEY_ID: ${MINIO_ACCESS_KEY:-minioadmin}
+      AWS_SECRET_ACCESS_KEY: ${MINIO_SECRET_KEY:-minioadmin}
+    ports:
+      - "${MLFLOW_PORT:-5000}:5000"
+    depends_on:
+      postgres: { condition: service_healthy }
+      minio: { condition: service_started }
+    # Only needed while training. `make up-ml` starts it.
+    profiles: ["ml"]
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
+  redis-data:
+  minio-data:
+  mosquitto-data:

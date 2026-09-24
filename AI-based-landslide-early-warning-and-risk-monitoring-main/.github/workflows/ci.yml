@@ -1,0 +1,154 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: "3.12"
+  NODE_VERSION: "22"
+
+jobs:
+  python:
+    name: Python — lint, types, tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      - name: Ruff lint
+        run: ruff check api ingest ml scripts
+
+      - name: Ruff format check
+        run: ruff format --check api ingest ml scripts
+
+      - name: Mypy
+        run: mypy api
+
+      - name: Pytest
+        # No database or Redis in this job. The suite is written to run without
+        # them, which is what proves the service degrades honestly rather than
+        # crashing when a dependency is missing.
+        env:
+          PYTHONPATH: api
+        run: pytest -q
+
+  web:
+    name: Web — lint, types, tests, build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - run: npm ci
+
+      - name: ESLint
+        run: npm run lint
+
+      - name: Prettier check
+        run: npm run format:check
+
+      - name: TypeScript
+        run: npm run typecheck
+
+      - name: Unit tests
+        run: npx vitest run
+
+      - name: WCAG contrast audit
+        # Fails the build if any design token pair drops below AA. Colour is a
+        # safety property in a warning system, not a matter of taste.
+        run: npm run contrast
+
+      - name: Build
+        run: npm run build
+
+  docker:
+    name: Docker — build images
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build API image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: infra/docker/api.Dockerfile
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build web image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: infra/docker/web.Dockerfile
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  compose:
+    name: Compose — stack comes up healthy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate compose file
+        run: docker compose -f infra/docker-compose.yml config --quiet
+
+      - name: Start datastores
+        # The datastores are what the rest of the stack depends on, so CI proves
+        # they reach a healthy state before any migration work lands on them.
+        run: docker compose -f infra/docker-compose.yml up -d postgres redis mosquitto minio
+
+      - name: Wait for health
+        run: |
+          for i in $(seq 1 30); do
+            unhealthy=$(docker compose -f infra/docker-compose.yml ps \
+              --format '{{.Name}} {{.Health}}' | grep -v 'healthy' || true)
+            if [ -z "$unhealthy" ]; then
+              echo "All services healthy."
+              exit 0
+            fi
+            echo "Waiting: $unhealthy"
+            sleep 5
+          done
+          docker compose -f infra/docker-compose.yml logs
+          exit 1
+
+      - name: Verify PostGIS and TimescaleDB are installed
+        run: |
+          docker compose -f infra/docker-compose.yml exec -T postgres \
+            psql -U shail -d shailsuraksha -c \
+            "SELECT extname FROM pg_extension WHERE extname IN ('postgis','timescaledb');" \
+            | tee /tmp/ext.txt
+          grep -q postgis /tmp/ext.txt
+          grep -q timescaledb /tmp/ext.txt
+
+      - name: Tear down
+        if: always()
+        run: docker compose -f infra/docker-compose.yml down -v
